@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PK Gold Live Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Fira+Code:wght@400&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #0a0a0a; color: #fff; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .dashboard { max-width: 500px; width: 100%; }
+        
+        /* HEADER */
+        header { text-align: center; margin-bottom: 20px; }
+        h1 { color: #FFD700; margin: 0; font-size: 28px; }
+        
+        /* TERMINAL / LOG WINDOW */
+        .terminal {
+            background: #000;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Fira Code', monospace;
+            font-size: 12px;
+            color: #00ff00;
+            margin-bottom: 25px;
+            height: 100px;
+            overflow-y: auto;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.1);
+        }
+        .log-line { margin: 2px 0; opacity: 0.8; }
+        .log-line.error { color: #ff4444; }
+        .blink { animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+
+        /* RATE CARDS CONTAINER */
+        #ratesContainer {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        /* INDIVIDUAL RATE CARD */
+        .rate-card {
+            background: #1a1a1a; 
+            border-radius: 16px; 
+            padding: 20px;
+            border: 1px solid #333; 
+            opacity: 0; 
+            transform: translateY(10px);
+            animation: popIn 0.5s forwards;
+            position: relative;
+            overflow: hidden;
+        }
+        .rate-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 4px; height: 100%;
+            background: #FFD700;
+        }
+        
+        @keyframes popIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .price-large { font-size: 32px; font-weight: 800; color: #fff; }
+        .unit { font-size: 12px; color: #666; margin-left: 5px; }
+        
+        .source-tag { 
+            font-size: 10px; 
+            color: #FFD700; 
+            text-transform: uppercase; 
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .source-link { 
+            color: #999; 
+            text-decoration: none; 
+            font-size: 10px;
+            border-bottom: 1px dotted #555;
+            transition: 0.3s;
+        }
+        .source-link:hover { color: #fff; border-color: #fff; }
+
+        .refresh-btn {
+            background: #333; color: white; width: 100%; padding: 15px; border: none;
+            border-radius: 50px; font-weight: bold; cursor: pointer; margin-top: 10px;
+            transition: background 0.3s;
+        }
+        .refresh-btn:hover { background: #444; }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <header>
+            <h1>PK Gold Tracker</h1>
+            <p style="color:#666; font-size:13px;">Live Multi-Source AI Scraping</p>
+        </header>
+
+        <div class="terminal" id="console">
+            <div class="log-line">> System Initialized...</div>
+            <div class="log-line">> Waiting for command...<span class="blink">_</span></div>
+        </div>
+
+        <div id="ratesContainer">
+            <div style="text-align:center; color:#444; padding:20px;">
+                Ready to scan...
+            </div>
+        </div>
+
+        <button class="refresh-btn" onclick="startScraping()">⚡ Force Refresh</button>
+    </div>
+
+    <script>
+        function log(message, isError=false) {
+            const consoleDiv = document.getElementById('console');
+            const line = document.createElement('div');
+            line.className = 'log-line' + (isError ? ' error' : '');
+            const time = new Date().toLocaleTimeString().split(' ')[0];
+            line.innerText = `[${time}] ${message}`;
+            consoleDiv.appendChild(line);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        async function startScraping() {
+            const ratesContainer = document.getElementById('ratesContainer');
+            
+            // Clear previous cards
+            ratesContainer.innerHTML = '<div style="text-align:center; color:#666;">Scanning Sources...</div>';
+            
+            log("🚀 STARTING MULTI-SOURCE SEQUENCE...");
+            
+            try {
+                log("> Querying AI Scraper...");
+                const rateRes = await fetch('/api/rates');
+                const rateData = await rateRes.json();
+
+                // Clear "Scanning..." message
+                ratesContainer.innerHTML = '';
+
+                if (rateData.error || rateData.length === 0) {
+                    log("❌ Error: No data found.", true);
+                    ratesContainer.innerHTML = '<div style="text-align:center; color:#ff4444;">No Data Found</div>';
+                } else {
+                    log(`✅ SUCCESS: Found ${rateData.length} Sources.`);
+                    
+                    // LOOP THROUGH ALL RESULTS AND CREATE CARDS
+                    rateData.forEach(rate => {
+                        const card = document.createElement('div');
+                        card.className = 'rate-card';
+                        
+                        card.innerHTML = `
+                            <div class="source-tag">
+                                <span>${rate.source}</span>
+                                <a href="${rate.url}" target="_blank" class="source-link">VISIT SOURCE 🔗</a>
+                            </div>
+                            <div>
+                                <span class="price-large">${rate.price_text}</span>
+                                <span class="unit">PKR / Tola</span>
+                            </div>
+                        `;
+                        
+                        ratesContainer.appendChild(card);
+                        log(`   > ${rate.source}: ${rate.price_text}`);
+                    });
+                }
+
+            } catch (err) {
+                console.error(err);
+                log("❌ NETWORK ERROR", true);
+            }
+
+            log("> CYCLE COMPLETE. <span class='blink'>_</span>");
+        }
+
+        window.onload = startScraping;
+    </script>
+
+</body>
+</html>
